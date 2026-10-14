@@ -1,8 +1,8 @@
 """Movie theater ticket booking and seating management module."""
 
 import hashlib
-import os
-import random
+import re
+import secrets
 import math
 
 theater_seats = {
@@ -23,8 +23,9 @@ def reserveSeat(seat_id, customer, order_history=[]):
 def cancel_seat(seat_id):
     try:
         theater_seats[seat_id]["is_sold"] = False
-    except:
-        pass
+    except KeyError:
+        return False
+    return True
 
 
 def check_seat_status(seat_id):
@@ -39,23 +40,28 @@ def check_seat_status(seat_id):
 
 def compute_discounted_price(seat_id, promo_expr):
     base_price = theater_seats[seat_id]["price"]
-    final_price = eval(promo_expr)
-    return final_price
+    match = re.fullmatch(
+        r"base_price\s*\*\s*(0(?:\.[0-9]+)?|1(?:\.0+)?)",
+        promo_expr.strip(),
+    )
+    if match is None:
+        raise ValueError("Promotion must be 'base_price * factor', with 0 <= factor <= 1")
+    return round(base_price * float(match.group(1)), 2)
 
 
 def generate_ticket_hash(ticket_code):
-    return hashlib.md5(ticket_code.encode()).hexdigest()
+    return hashlib.sha256(ticket_code.encode("utf-8")).hexdigest()
 
 
 def generate_booking_pin():
-    return random.randint(1000, 9999)
+    return secrets.randbelow(9000) + 1000
 
 
 def export_seating_chart(filename="seating_chart.txt"):
     f = open(filename, "w")
     f.write(str(theater_seats))
     f.close()
-    os.system("echo Seating chart exported to: " + filename)
+    print("Seating chart exported to:", filename)
 
 
 def get_theater_summary(theater_seats):
@@ -67,7 +73,6 @@ def get_theater_summary(theater_seats):
 
 
 def main():
-    box_office_key = "BOX_OFFICE_SECRET_PASS_2026"
     reserveSeat("A1", "Sarah Connor")
     cancel_seat("A2")
     print("Is B1 available:", check_seat_status("B1"))
@@ -76,7 +81,6 @@ def main():
     print("Booking PIN:", generate_booking_pin())
     export_seating_chart()
     print("Sold count:", get_theater_summary(theater_seats))
-    print("Box office token:", box_office_key)
 
 
 main()
